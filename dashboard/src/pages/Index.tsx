@@ -1,18 +1,46 @@
+import { useState } from 'react';
 import { useKMSKeys } from '../hooks/useKMSKeys';
 import QuantumParticles from '../components/QuantumParticles';
+import { toast } from 'react-hot-toast';
 
 const Index = () => {
-  const { data: keys, isLoading, error } = useKMSKeys();
+  const { data: keys, isLoading, error, refetch } = useKMSKeys();
+  const [isRotating, setIsRotating] = useState<string | null>(null);
+
+  // 🔁 Rotate Test API handler
+  const handleRotateTest = async (keyId: string, alias: string) => {
+    setIsRotating(keyId);
+    const loadingToast = toast.loading('Processing...');
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/rotate-test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ keyId, alias }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'API Error');
+      }
+
+      toast.success(`✅ Rotate successful for ${keyId}`, { id: loadingToast });
+      refetch(); // 🔄 Refresh inventory after success
+    } catch (error: any) {
+      console.error('❌ Rotate Error:', error);
+      toast.error(`❌ Failed: ${error.message}`, { id: loadingToast });
+    } finally {
+      setIsRotating(null);
+    }
+  };
 
   const renderContent = () => {
     if (isLoading) {
       return (
         <div className="flex items-center justify-center space-x-3">
-          <div className="status-indicator status-loading"></div>
-          <div className="relative">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-quantum-electric border-t-transparent"></div>
-            <div className="absolute inset-0 animate-spin rounded-full h-8 w-8 border-2 border-quantum-violet border-t-transparent" style={{ animationDelay: '0.5s', animationDirection: 'reverse' }}></div>
-          </div>
           <span className="text-lg font-jetbrains text-gray-200">Loading key count…</span>
         </div>
       );
@@ -21,63 +49,91 @@ const Index = () => {
     if (error) {
       return (
         <div className="text-center space-y-3">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="status-indicator status-error"></div>
-            <span className="text-sm font-jetbrains text-quantum-pink">SYSTEM ERROR</span>
-          </div>
+          <span className="text-sm font-jetbrains text-quantum-pink">SYSTEM ERROR</span>
           <p className="text-lg font-jetbrains text-red-300">
             {error instanceof Error ? error.message : 'Failed to fetch data'}
           </p>
-          <div className="text-xs font-jetbrains text-gray-400 mt-2">
-            Check network connection and API availability
-          </div>
         </div>
       );
     }
 
-    if (keys !== undefined) {
-      const redCount = keys.filter(k => k.risk === "RED").length;
-      const yellowCount = keys.filter(k => k.risk === "YELLOW").length;
-      const greenCount = keys.filter(k => k.risk === "GREEN").length;
+    if (keys) {
+      const redCount = keys.filter(k => k.risk === 'RED').length;
+      const yellowCount = keys.filter(k => k.risk === 'YELLOW').length;
+      const greenCount = keys.filter(k => k.risk === 'GREEN').length;
 
       return (
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="status-indicator status-success"></div>
-            <span className="text-sm font-jetbrains text-quantum-electric">SYSTEM OPERATIONAL</span>
-          </div>
-
-          <div className="relative">
-            <p className="text-4xl font-bold font-jetbrains text-white mb-2">
-              {keys.length}
-            </p>
-            <p className="text-lg font-inter text-gray-300">
-              Quantum Keys Detected
-            </p>
-            <div className="absolute inset-0 quantum-glow opacity-20 rounded-lg"></div>
-          </div>
-
-          {/* 🔴🟡🟢 BADGE COUNTS */}
-          <div className="flex justify-center gap-4 text-lg font-bold font-jetbrains">
-            <span className="text-red-400">🔴 {redCount}</span>
-            <span className="text-yellow-300">🟡 {yellowCount}</span>
-            <span className="text-green-400">🟢 {greenCount}</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mt-6 text-center">
-            <div className="glass-card rounded-lg p-3">
-              <div className="text-quantum-electric font-jetbrains text-sm">ENCRYPTION</div>
-              <div className="text-white font-bold">AES-256</div>
+        <div className="space-y-6">
+          <div className="text-center space-y-4">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-sm font-jetbrains text-quantum-electric">SYSTEM OPERATIONAL</span>
             </div>
-            <div className="glass-card rounded-lg p-3">
-              <div className="text-quantum-violet font-jetbrains text-sm">STATUS</div>
-              <div className="text-white font-bold">SECURE</div>
+            <div className="relative">
+              <p className="text-4xl font-bold font-jetbrains text-white mb-2">{keys.length}</p>
+              <p className="text-lg font-inter text-gray-300">Quantum Keys Detected</p>
             </div>
-            <div className="glass-card rounded-lg p-3">
-              <div className="text-quantum-pink font-jetbrains text-sm">QUANTUM</div>
-              <div className="text-white font-bold">READY</div>
+            <div className="flex justify-center gap-4 text-lg font-bold font-jetbrains">
+              <span className="text-red-400">🔴 {redCount}</span>
+              <span className="text-yellow-300">🟡 {yellowCount}</span>
+              <span className="text-green-400">🟢 {greenCount}</span>
             </div>
           </div>
+
+          {/* 🔑 Key List */}
+          <div className="space-y-4">
+            {keys.map((key) => (
+              <div
+                key={key.keyId}
+                className="glass-card rounded-xl p-4 flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-sm font-inter text-gray-300">
+                    <span className="font-bold text-white">{key.keyId}</span>
+                  </div>
+                  <div className="text-xs font-jetbrains text-gray-400">
+                    Risk Level:{' '}
+                    <span
+                      className={`text-${
+                        key.risk === 'RED'
+                          ? 'red'
+                          : key.risk === 'YELLOW'
+                          ? 'yellow'
+                          : 'green'
+                      }-400`}
+                    >
+                      {key.risk}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 🔁 Rotate Test Button */}
+                {key.risk === 'RED' || key.risk === 'YELLOW' ? (
+                  <button
+                    className={`px-4 py-1 bg-quantum-electric text-white rounded-lg font-jetbrains hover:bg-blue-500 transition ${
+                      isRotating === key.keyId ? 'opacity-50 cursor-wait' : ''
+                    }`}
+                    onClick={() => handleRotateTest(key.keyId, key.alias || 'N/A')}
+                    disabled={isRotating !== null}
+                  >
+                    {isRotating === key.keyId ? '🔄 Rotating...' : '🔁 Rotate Test'}
+                  </button>
+                ) : (
+                  <button
+                    className="px-4 py-1 bg-gray-600 text-gray-300 rounded-lg font-jetbrains cursor-not-allowed"
+                    disabled
+                  >
+                    ✅ No Action
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {isRotating && (
+            <div className="text-center text-blue-400 mt-4">
+              🔄 Processing Rotate Test...
+            </div>
+          )}
         </div>
       );
     }
@@ -88,18 +144,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-quantum-gradient relative overflow-hidden">
       <QuantumParticles />
-
-      {/* Grid Background Overlay */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="h-full w-full" style={{
-          backgroundImage: `
-            linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
-          `,
-          backgroundSize: '50px 50px'
-        }}></div>
-      </div>
-
       <div className="relative z-10 flex items-center justify-center min-h-screen p-6">
         <div className="w-full max-w-4xl">
           <div className="glass-card rounded-3xl overflow-hidden relative">
@@ -114,46 +158,16 @@ const Index = () => {
               </div>
               <div className="w-32 h-0.5 bg-gradient-to-r from-quantum-electric to-quantum-violet mx-auto mt-6 mb-2"></div>
             </div>
-
-            {/* Content */}
             <div className="px-8 pb-8">
               <div className="glass-card rounded-2xl p-8 relative">
-                <div className="absolute top-4 right-4">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 rounded-full bg-quantum-electric opacity-60"></div>
-                    <div className="w-2 h-2 rounded-full bg-quantum-violet opacity-60"></div>
-                    <div className="w-2 h-2 rounded-full bg-quantum-pink opacity-60"></div>
-                  </div>
-                </div>
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-jetbrains text-gray-300 mb-2">
-                    AWS KMS Inventory Scan
-                  </h3>
-                </div>
                 {renderContent()}
               </div>
             </div>
           </div>
-
-          {/* Footer */}
           <div className="text-center mt-8">
             <p className="text-sm font-jetbrains text-gray-400">
               Real-time monitoring • Post-quantum cryptography • Enterprise-grade security
             </p>
-            <div className="flex items-center justify-center space-x-4 mt-3">
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 rounded-full bg-quantum-electric"></div>
-                <span className="text-xs font-jetbrains text-gray-500">Live</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 rounded-full bg-quantum-violet"></div>
-                <span className="text-xs font-jetbrains text-gray-500">Encrypted</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 rounded-full bg-quantum-pink"></div>
-                <span className="text-xs font-jetbrains text-gray-500">Quantum-Safe</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

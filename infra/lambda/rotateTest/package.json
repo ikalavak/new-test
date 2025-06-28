@@ -1,5 +1,5 @@
 {
-  "name": "listkeys",
+  "name": "rotatetest",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -8,8 +8,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "types": "./index.d.ts",
+  "description": "",
   "dependencies": {
-    "aws-sdk": "^2.1692.0"
-  },
-  "description": ""
+    "aws-sdk": "^2.1692.0",
+    "ulid": "^3.0.1"
+  }
 }
